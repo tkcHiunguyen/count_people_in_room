@@ -55,16 +55,33 @@ list_in = []
 
 height = 0
 width = 0
-
+def get_device_status(device_id):
+    # Kết nối với Tuya OpenAPI
+    openapi = TuyaOpenAPI(BASE_URL, API_KEY, SECRET_KEY)
+    print(openapi.connect())
+    
+    # Gửi yêu cầu GET để lấy trạng thái thiết bị
+    response = openapi.get(f"/v1.0/iot-03/devices/{device_id}/status")
+    
+    if response.get("success"):
+        # Lấy danh sách các trạng thái
+        status_list = response.get("result", [])
+        for status in status_list:
+            if status.get("code") == "switch_1":
+                return status.get("value")  # Trả về giá trị của "switch_1"
+    else:
+        print(f"Error: {response.get('msg')}")
+        return None
 def controll_aircondition(value_controll):
     openapi = TuyaOpenAPI(BASE_URL, API_KEY, SECRET_KEY)
     print(openapi.connect())
-    # # Create the command payload
+    current_status = get_device_status(SWITCH_DEVICE_ID)
+    if current_status == value_controll:
+        print("No change needed.")
+        return
     command = {"commands": [{"code": "switch_1", "value": value_controll}]}
-    print(command)
     response = openapi.post(f"/v1.0/iot-03/devices/{SWITCH_DEVICE_ID}/commands", command)
     print(response)
-    
 def is_inside_box(center_x, center_y, rotated_box_points):
     """
     Kiểm tra xem điểm (center_x, center_y) có nằm trong hình chữ nhật xoay hay không.
@@ -74,10 +91,18 @@ def is_inside_box(center_x, center_y, rotated_box_points):
 def capture_camera():
     global latest_frame, top_left_door, top_right_door, bottom_right_door, bottom_left_door
     while not stop_threads:
+        if not cap.isOpened():  # Nếu camera chưa mở, mở lại
+            print("Camera not open, attempting to reconnect...")
+            cap = cv2.VideoCapture(0)  # Mở lại kết nối với camera (sử dụng 0 là camera mặc định)
+            if not cap.isOpened():
+                print("Failed to reconnect to camera.")
+                time.sleep(1)  # Nếu không thể kết nối, chờ 1 giây và thử lại
+                continue  # Tiếp tục vòng lặp mà không thoát
         ret, frame = cap.read()
         if not ret:
             print("Error when opening camera")
-            break
+            time.sleep(1)
+            continue
         frame_height, frame_width = frame.shape[:2]
         rect_width = int(frame_width * 0.18)
         rect_height = int(frame_height * 0.7)
