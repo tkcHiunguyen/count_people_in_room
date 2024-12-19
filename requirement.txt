@@ -1,0 +1,6 @@
+torch
+opencv-python
+numpy
+ultralytics
+tuya_iot_python
+tuya_connector
