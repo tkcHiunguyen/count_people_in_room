@@ -91,18 +91,11 @@ def is_inside_box(center_x, center_y, rotated_box_points):
 def capture_camera():
     global latest_frame, top_left_door, top_right_door, bottom_right_door, bottom_left_door
     while not stop_threads:
-        if not cap.isOpened():  # Nếu camera chưa mở, mở lại
-            print("Camera not open, attempting to reconnect...")
-            cap = cv2.VideoCapture(0)  # Mở lại kết nối với camera (sử dụng 0 là camera mặc định)
-            if not cap.isOpened():
-                print("Failed to reconnect to camera.")
-                time.sleep(1)  # Nếu không thể kết nối, chờ 1 giây và thử lại
-                continue  # Tiếp tục vòng lặp mà không thoát
         ret, frame = cap.read()
         if not ret:
             print("Error when opening camera")
-            time.sleep(1)
-            continue
+            cap.release()
+            cap= cv2.VideoCapture(rtsp_url)
         frame_height, frame_width = frame.shape[:2]
         rect_width = int(frame_width * 0.18)
         rect_height = int(frame_height * 0.7)
