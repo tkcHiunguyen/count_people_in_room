@@ -83,52 +83,52 @@ def controll_aircondition(value_controll):
     response = openapi.post(f"/v1.0/iot-03/devices/{SWITCH_DEVICE_ID}/commands", command)
     print(response)
 def is_inside_box(center_x, center_y, rotated_box_points):
-    """
-    Kiểm tra xem điểm (center_x, center_y) có nằm trong hình chữ nhật xoay hay không.
-    """
     result = cv2.pointPolygonTest(rotated_box_points, (center_x, center_y), False)
     return result >= 0
 def capture_camera():
-    global latest_frame, top_left_door, top_right_door, bottom_right_door, bottom_left_door
+    global cap,latest_frame, top_left_door, top_right_door, bottom_right_door, bottom_left_door
     while not stop_threads:
         ret, frame = cap.read()
-        if not ret:
+        if not ret or frame is None:
             print("Error when opening camera")
             cap.release()
-            cap= cv2.VideoCapture(rtsp_url)
-        frame_height, frame_width = frame.shape[:2]
-        rect_width = int(frame_width * 0.18)
-        rect_height = int(frame_height * 0.7)
+            cap = cv2.VideoCapture(rtsp_url)
+            time.sleep(1)
+            continue
+        if frame is not None:
+            frame_height, frame_width = frame.shape[:2]
+            rect_width = int(frame_width * 0.18)
+            rect_height = int(frame_height * 0.7)
 
-        # Tính toán tọa độ góc trên bên trái của hình chữ nhật
-        top_left = (
-            frame_width - rect_width - int(frame_width * 0.2),
-            frame_height - rect_height - int(frame_height * 0.12),
-        )
-        bottom_right = (top_left[0] + rect_width, top_left[1] + rect_height)
-        center = (top_left[0] + rect_width // 2, top_left[1] + rect_height // 2)
-        rotation_matrix = cv2.getRotationMatrix2D(center, -4, 1)
-        rect_points = np.array(
-            [
-                top_left,
-                (top_left[0] + rect_width, top_left[1]),  # Góc trên bên phải
-                bottom_right,  # Góc dưới bên phải
-                (top_left[0], top_left[1] + rect_height),  # Góc dưới bên trái
-            ],
-            dtype=np.float32,
-        )
-        rotated_points = cv2.transform(np.array([rect_points]), rotation_matrix)[0]
-        rotated_points = np.int32(rotated_points)
-        color = (153, 0, 0)  # Màu đỏ (BGR)
-        thickness = 2  # Độ dày của đường viền
-        cv2.polylines(
-            frame, [rotated_points], isClosed=True, color=color, thickness=thickness
-        )
-        top_left_door = rotated_points[0]  # Đỉnh trên bên trái
-        top_right_door = rotated_points[1]  # Đỉnh trên bên phải
-        bottom_right_door = rotated_points[2]  # Đỉnh dưới bên phải
-        bottom_left_door = rotated_points[3]  # Đỉnh dưới bên trái
-        latest_frame = frame.copy()
+            # Tính toán tọa độ góc trên bên trái của hình chữ nhật
+            top_left = (
+                frame_width - rect_width - int(frame_width * 0.2),
+                frame_height - rect_height - int(frame_height * 0.12),
+            )
+            bottom_right = (top_left[0] + rect_width, top_left[1] + rect_height)
+            center = (top_left[0] + rect_width // 2, top_left[1] + rect_height // 2)
+            rotation_matrix = cv2.getRotationMatrix2D(center, -4, 1)
+            rect_points = np.array(
+                [
+                    top_left,
+                    (top_left[0] + rect_width, top_left[1]),  # Góc trên bên phải
+                    bottom_right,  # Góc dưới bên phải
+                    (top_left[0], top_left[1] + rect_height),  # Góc dưới bên trái
+                ],
+                dtype=np.float32,
+            )
+            rotated_points = cv2.transform(np.array([rect_points]), rotation_matrix)[0]
+            rotated_points = np.int32(rotated_points)
+            color = (153, 0, 0)  # Màu đỏ (BGR)
+            thickness = 2  # Độ dày của đường viền
+            cv2.polylines(
+                frame, [rotated_points], isClosed=True, color=color, thickness=thickness
+            )
+            top_left_door = rotated_points[0]  # Đỉnh trên bên trái
+            top_right_door = rotated_points[1]  # Đỉnh trên bên phải
+            bottom_right_door = rotated_points[2]  # Đỉnh dưới bên phải
+            bottom_left_door = rotated_points[3]  # Đỉnh dưới bên trái
+            latest_frame = frame.copy()
         fps = cap.get(cv2.CAP_PROP_FPS)
         time.sleep(1 / fps)
 def process_tracking():
@@ -167,13 +167,13 @@ def process_tracking():
                     confidence = confidences[i]
                     x, y, w, h = int(x), int(y), int(w), int(h)
                     track_id = int(track_id)
-                    # cv2.rectangle(
-                    #     frame,
-                    #     (x - w // 2, y - h // 2),  # Top left corner
-                    #     (x + w // 2, y + h // 2),  # Bottom right
-                    #     (0, 255, 0),
-                    #     2,
-                    # )
+                    cv2.rectangle(
+                        frame,
+                        (x - w // 2, y - h // 2),  # Top left corner
+                        (x + w // 2, y + h // 2),  # Bottom right
+                        (0, 255, 0),
+                        2,
+                    )
                     # Tính toán kích thước và vị trí của bounding box màu cam
                     orange_box_w = int(w * 0.3)  # Chiều rộng là 20% của bounding box mẹ
                     orange_box_h = int(h * 0.3)  # Chiều cao không thay đổi
@@ -183,22 +183,22 @@ def process_tracking():
                     
                     
                     
-                    # cv2.rectangle(
-                    #     frame,
-                    #     (orange_box_x, orange_box_y),
-                    #     (orange_box_x + orange_box_w, orange_box_y + orange_box_h),
-                    #     (0, 165, 255),  # Màu cam (BGR)
-                    #     2,  # Độ dày của đường viền
-                    # )
+                    cv2.rectangle(
+                        frame,
+                        (orange_box_x, orange_box_y),
+                        (orange_box_x + orange_box_w, orange_box_y + orange_box_h),
+                        (0, 165, 255),  # Màu cam (BGR)
+                        2,  # Độ dày của đường viền
+                    )
                     center_x = orange_box_x + orange_box_w // 2
                     center_y = orange_box_y + orange_box_h // 2
-                    # cv2.circle(
-                    #     frame,
-                    #     (center_x, center_y),  # Tọa độ điểm chính giữa
-                    #     5,  # Bán kính của điểm
-                    #     (0, 0, 255),  # Màu đỏ (BGR)
-                    #     -1,  # Điền đầy điểm
-                    # )
+                    cv2.circle(
+                        frame,
+                        (center_x, center_y),  # Tọa độ điểm chính giữa
+                        5,  # Bán kính của điểm
+                        (0, 0, 255),  # Màu đỏ (BGR)
+                        -1,  # Điền đầy điểm
+                    )
                     
                     
                     reference_points = np.array(
@@ -247,28 +247,28 @@ def process_tracking():
                         0
                     ]
                     text_w, text_h = text_size
-                    # cv2.rectangle(
-                    #     latest_frame,
-                    #     (
-                    #         x - w // 2,
-                    #         y - h // 2 - 30,
-                    #     ),  # Vị trí của nền (phía trên bbox)
-                    #     (
-                    #         x - w // 2 + text_w + 10,
-                    #         y - h // 2 - 30 + text_h + 10,
-                    #     ),  # Kích thước nền
-                    #     (0, 255, 255),  # Màu vàng (BGR)
-                    #     -1,  # Điền đầy nền
-                    # )
-                    # cv2.putText(
-                    #     latest_frame,
-                    #     info,
-                    #     (x - w // 2 + 5, y - h // 2 - 5),  # Vị trí của chữ trên nền
-                    #     cv2.FONT_HERSHEY_SIMPLEX,
-                    #     0.7,  # Kích thước chữ
-                    #     (0, 0, 0),  # Màu chữ đen
-                    #     2,  # Độ dày chữ
-                    # )
+                    cv2.rectangle(
+                        latest_frame,
+                        (
+                            x - w // 2,
+                            y - h // 2 - 30,
+                        ),  # Vị trí của nền (phía trên bbox)
+                        (
+                            x - w // 2 + text_w + 10,
+                            y - h // 2 - 30 + text_h + 10,
+                        ),  # Kích thước nền
+                        (0, 255, 255),  # Màu vàng (BGR)
+                        -1,  # Điền đầy nền
+                    )
+                    cv2.putText(
+                        latest_frame,
+                        info,
+                        (x - w // 2 + 5, y - h // 2 - 5),  # Vị trí của chữ trên nền
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,  # Kích thước chữ
+                        (0, 0, 0),  # Màu chữ đen
+                        2,  # Độ dày chữ
+                    )
             else:
                 for track_id in list(tracking_storage.keys()):
                     print(f"{tracking_storage[track_id]}-{tracking_storage[track_id][exs]} ")
@@ -345,22 +345,22 @@ def process_tracking():
                 (255, 255, 0),  
                 thickness,
             )
-            # cv2.rectangle(
-            #     frame,
-            #     (out_x - 10, out_y - out_text_size[1] - 10),  # Top left
-            #     (out_x + out_text_size[0] + 10, out_y + 10),  # Bottom right
-            #     (255, 255, 255),  # Màu nền trắng
-            #     -1,
-            # )
-            # cv2.putText(
-            #     frame,
-            #     out_text,
-            #     (out_x, out_y),  # Vị trí của chữ
-            #     cv2.FONT_HERSHEY_SIMPLEX,
-            #     font_scale,
-            #     (0, 165, 255),  # Màu cam (BGR)
-            #     thickness,
-            # )
+            cv2.rectangle(
+                frame,
+                (out_x - 10, out_y - out_text_size[1] - 10),  # Top left
+                (out_x + out_text_size[0] + 10, out_y + 10),  # Bottom right
+                (255, 255, 255),  # Màu nền trắng
+                -1,
+            )
+            cv2.putText(
+                frame,
+                out_text,
+                (out_x, out_y),  # Vị trí của chữ
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                (0, 165, 255),  # Màu cam (BGR)
+                thickness,
+            )
             ################################################
             ##          AIR CONDITION                    ###
             ################################################

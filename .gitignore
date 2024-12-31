@@ -1,0 +1,8 @@
+.gitignore
+.vscode/
+*.mp4
+*.pt
+myenv/
+runs
+track
+main.py
